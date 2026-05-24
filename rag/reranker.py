@@ -47,10 +47,7 @@ def rerank(
     pairs = [(query, doc.page_content) for doc, _ in documents]
     scores = reranker.compute_score(pairs)
 
-    scored = [
-        (doc, float(score))
-        for doc, score in zip([d for d, _ in documents], scores)
-    ]
+    scored = [(doc, float(score)) for (doc, _), score in zip(documents, scores)]
     scored.sort(key=lambda x: x[1], reverse=True)
 
     return scored[:top_k]

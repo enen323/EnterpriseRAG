@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock
 
-import numpy as np
 import pytest
 
 from rag.vector_store import search_documents

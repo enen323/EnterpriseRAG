@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 from api.main import app
 from core.database import Base, get_db
 
-TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
+TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
 
 @pytest_asyncio.fixture
@@ -43,16 +43,28 @@ async def test_register(client):
 
 
 @pytest.mark.asyncio
+async def test_register_password_too_short(client):
+    resp = await client.post("/api/auth/register", json={"username": "shortpwd", "password": "ab"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_register_username_too_short(client):
+    resp = await client.post("/api/auth/register", json={"username": "a", "password": "longenough123"})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_register_duplicate(client):
-    await client.post("/api/auth/register", json={"username": "dupuser", "password": "pass123"})
-    resp = await client.post("/api/auth/register", json={"username": "dupuser", "password": "pass456"})
+    await client.post("/api/auth/register", json={"username": "dupuser", "password": "pass12345"})
+    resp = await client.post("/api/auth/register", json={"username": "dupuser", "password": "pass45678"})
     assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
 async def test_login(client):
-    await client.post("/api/auth/register", json={"username": "loginuser", "password": "mypass"})
-    resp = await client.post("/api/auth/login", json={"username": "loginuser", "password": "mypass"})
+    await client.post("/api/auth/register", json={"username": "loginuser", "password": "mypass123"})
+    resp = await client.post("/api/auth/login", json={"username": "loginuser", "password": "mypass123"})
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
@@ -61,6 +73,12 @@ async def test_login(client):
 
 @pytest.mark.asyncio
 async def test_login_wrong_password(client):
-    await client.post("/api/auth/register", json={"username": "authuser", "password": "correct"})
-    resp = await client.post("/api/auth/login", json={"username": "authuser", "password": "wrong"})
+    await client.post("/api/auth/register", json={"username": "authuser", "password": "correctpw"})
+    resp = await client.post("/api/auth/login", json={"username": "authuser", "password": "wrongpass"})
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_me_unauthorized(client):
+    resp = await client.get("/api/auth/me")
     assert resp.status_code == 401

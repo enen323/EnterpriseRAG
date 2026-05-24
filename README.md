@@ -53,8 +53,8 @@ Once running, visit http://localhost:8000/docs for Swagger UI.
 
 See [docs/superpowers/specs/2026-05-23-enterprise-rag-design.md](docs/superpowers/specs/2026-05-23-enterprise-rag-design.md)
 
-## Performance
+## Performance Targets
 
-- Recall@5: 92% (with Reranker)
-- End-to-end latency: ~2.8s
-- Supported: 100+ documents, ~100K words
+- Recall@5 target: 92% (with Reranker)
+- End-to-end latency target: ~2.8s
+- Scale target: 100+ documents, ~100K words

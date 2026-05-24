@@ -14,14 +14,17 @@ def test_format_context():
 
 
 def test_parse_sources():
-    answer = "This is based on docs. 【来源: file1.md】【来源: file2.pdf】"
+    answer = "Answer content. 【来源: file1.md】【来源: file2.pdf】"
     clean, sources = _parse_sources(answer)
     assert "file1.md" in sources
     assert "file2.pdf" in sources
     assert len(sources) == 2
+    assert "【来源:" not in clean
+    assert clean == "Answer content."
 
 
 def test_parse_sources_no_citations():
     answer = "No citations here."
     clean, sources = _parse_sources(answer)
     assert sources == []
+    assert clean == "No citations here."

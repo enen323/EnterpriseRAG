@@ -35,11 +35,12 @@ def _format_context(docs: List[Tuple[LCDocument, float]]) -> str:
 
 
 def _parse_sources(answer: str) -> Tuple[str, list]:
-    """Extract source filenames from answer and return (answer, sources_list)."""
+    """Extract source filenames from answer and return (clean_answer, sources_list)."""
     pattern = r"【来源:\s*([^】]+)】"
     matches = re.findall(pattern, answer)
     sources = list(set(s.strip() for s in matches))
-    return answer, sources
+    clean = re.sub(pattern, "", answer).strip()
+    return clean, sources
 
 
 async def ask_question(

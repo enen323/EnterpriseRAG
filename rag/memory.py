@@ -28,19 +28,23 @@ class ConversationMemory:
             self.summary = f"User asked: {user_input}. Assistant replied: {assistant_response}"
             return self.summary
 
-        client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_API_BASE)
-        response = await client.chat.completions.create(
-            model=settings.LLM_MODEL,
-            temperature=0.1,
-            max_tokens=512,
-            messages=[
-                {"role": "user", "content": SUMMARY_PROMPT.format(
-                    summary=self.summary,
-                    new_lines=f"User: {user_input}\nAssistant: {assistant_response}",
-                )}
-            ],
-        )
-        self.summary = response.choices[0].message.content or self.summary
+        try:
+            client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_API_BASE)
+            response = await client.chat.completions.create(
+                model=settings.LLM_MODEL,
+                temperature=0.1,
+                max_tokens=512,
+                messages=[
+                    {"role": "user", "content": SUMMARY_PROMPT.format(
+                        summary=self.summary,
+                        new_lines=f"User: {user_input}\nAssistant: {assistant_response}",
+                    )}
+                ],
+            )
+            self.summary = response.choices[0].message.content or self.summary
+        except Exception as e:
+            logger.warning(f"LLM summarization failed, using fallback: {e}")
+            self.summary = f"{self.summary}\nUser: {user_input}\nAssistant: {assistant_response}"
         return self.summary
 
     def get_summary(self) -> str:

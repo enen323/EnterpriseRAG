@@ -30,7 +30,13 @@
       "Bash(python -m pytest \"d:\\\\develop\\\\PythonProject\\\\EnterpriseRAG\\\\tests\\\\test_retrieval.py\" -v)",
       "Bash(pytest tests/test_retrieval.py -v)",
       "Bash(python -m pytest tests/test_qa.py -v)",
-      "Bash(pytest tests/test_qa.py tests/test_retrieval.py tests/test_ingestion.py tests/test_auth.py -v)"
+      "Bash(pytest tests/test_qa.py tests/test_retrieval.py tests/test_ingestion.py tests/test_auth.py -v)",
+      "Bash(ls .venv/bin/python)",
+      "Bash(ls .venv/Scripts/python)",
+      "Bash(which python *)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_memory.py -v)",
+      "Bash(python -m pytest tests/test_memory.py -v)",
+      "Bash(pytest tests/test_memory.py tests/test_qa.py tests/test_retrieval.py tests/test_ingestion.py tests/test_auth.py -v)"
     ]
   }
 }

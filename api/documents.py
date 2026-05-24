@@ -54,6 +54,7 @@ async def upload_document(
     db.add(doc_record)
     await db.commit()
 
+    tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             tmp.write(await file.read())
@@ -66,13 +67,14 @@ async def upload_document(
         doc_record.status = DocumentStatus.READY
         doc_record.chunk_count = chunk_count
         await db.commit()
-
-        os.unlink(tmp_path)
     except Exception as e:
         doc_record.status = DocumentStatus.FAILED
         await db.commit()
         logger.error(f"Document ingestion failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
     await db.refresh(doc_record)
     return doc_record

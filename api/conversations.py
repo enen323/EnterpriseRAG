@@ -54,6 +54,7 @@ async def delete_conversation(
         select(Conversation).where(Conversation.id == conv_id, Conversation.user_id == current_user.id)
     )
     conv = result.scalar_one_or_none()
-    if conv:
-        await db.delete(conv)
-        await db.commit()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await db.delete(conv)
+    await db.commit()

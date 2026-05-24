@@ -28,10 +28,11 @@ def get_vector_store(collection_name: Optional[str] = None) -> Chroma:
     )
 
 
-def add_documents(docs: List[LCDocument], doc_id: str, collection_name: Optional[str] = None) -> int:
+def add_documents(docs: List[LCDocument], doc_id: str, user_id: str = "", collection_name: Optional[str] = None) -> int:
     """Add documents to Chroma. Returns chunk count."""
     for d in docs:
         d.metadata["doc_id"] = doc_id
+        d.metadata["user_id"] = user_id
 
     vector_store = get_vector_store(collection_name)
     vector_store.add_documents(docs)
@@ -44,7 +45,7 @@ def delete_document_chunks(doc_id: str, collection_name: Optional[str] = None):
     vector_store.delete(where={"doc_id": doc_id})
 
 
-def search_documents(query: str, k: int = settings.RETRIEVER_TOP_K, collection_name: Optional[str] = None) -> List[Tuple[LCDocument, float]]:
+def search_documents(query: str, k: int = settings.RETRIEVER_TOP_K, collection_name: Optional[str] = None, filter: Optional[dict] = None) -> List[Tuple[LCDocument, float]]:
     """Search Chroma and return top-k documents with relevance scores."""
     vector_store = get_vector_store(collection_name)
-    return vector_store.similarity_search_with_relevance_scores(query, k=k)
+    return vector_store.similarity_search_with_relevance_scores(query, k=k, filter=filter)

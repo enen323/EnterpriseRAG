@@ -28,7 +28,9 @@
       "Bash(ls ~/.cache/huggingface/hub/models--BAAI--bge-large-zh-v1.5/ 2>/dev/null | head -5 || echo \"Not cached\")",
       "Read(//c/Users/ASUS/.cache/huggingface/hub/**)",
       "Bash(python -m pytest \"d:\\\\develop\\\\PythonProject\\\\EnterpriseRAG\\\\tests\\\\test_retrieval.py\" -v)",
-      "Bash(pytest tests/test_retrieval.py -v)"
+      "Bash(pytest tests/test_retrieval.py -v)",
+      "Bash(python -m pytest tests/test_qa.py -v)",
+      "Bash(pytest tests/test_qa.py tests/test_retrieval.py tests/test_ingestion.py tests/test_auth.py -v)"
     ]
   }
 }

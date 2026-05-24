@@ -52,8 +52,8 @@ async def ask(
     if not docs:
         raise HTTPException(status_code=400, detail="No processed documents found. Upload documents first.")
 
-    # Retrieve
-    raw_results = search_documents(req.question)
+    # Retrieve (user-scoped)
+    raw_results = search_documents(req.question, filter={"user_id": str(current_user.id)})
 
     # Rerank
     reranked = rerank(req.question, raw_results)
@@ -72,7 +72,7 @@ async def ask(
 
     # Ask LLM
     try:
-        answer, _ = await ask_question(req.question, reranked, memory_summary)
+        answer, parsed_sources = await ask_question(req.question, reranked, memory_summary)
     except Exception as e:
         logger.error(f"LLM call failed: {e}", exc_info=True)
         raise HTTPException(status_code=502, detail=f"LLM API error: {str(e)}")

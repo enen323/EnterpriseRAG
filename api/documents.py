@@ -62,7 +62,7 @@ async def upload_document(
 
         raw_docs = load_document(tmp_path)
         chunks = split_documents(raw_docs)
-        chunk_count = add_documents(chunks, str(doc_id))
+        chunk_count = add_documents(chunks, str(doc_id), user_id=str(current_user.id))
 
         doc_record.status = DocumentStatus.READY
         doc_record.chunk_count = chunk_count

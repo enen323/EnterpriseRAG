@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+import bcrypt
 from jose import jwt
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +16,6 @@ from api.deps import get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(user_id: str) -> str:
@@ -29,12 +28,12 @@ def create_access_token(user_id: str) -> str:
 async def register(data: UserRegister, db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(select(User).where(User.username == data.username))
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Username already exists")
 
     user = User(
         id=uuid.uuid4(),
         username=data.username,
-        hashed_password=pwd_context.hash(data.password),
+        hashed_password=bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode(),
     )
     db.add(user)
     await db.commit()
@@ -46,7 +45,7 @@ async def register(data: UserRegister, db: Annotated[AsyncSession, Depends(get_d
 async def login(data: UserLogin, db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(select(User).where(User.username == data.username))
     user = result.scalar_one_or_none()
-    if not user or not pwd_context.verify(data.password, user.hashed_password):
+    if not user or not bcrypt.checkpw(data.password.encode(), user.hashed_password.encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     token = create_access_token(str(user.id))

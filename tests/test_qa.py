@@ -1,6 +1,6 @@
 import pytest
 from rag.qa_chain import _format_context, _parse_sources
-from langchain.schema import Document as LCDocument
+from langchain_core.documents import Document as LCDocument
 
 
 def test_format_context():

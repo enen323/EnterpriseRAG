@@ -1,7 +1,7 @@
 import logging
 from typing import List, Tuple
 
-from langchain.schema import Document as LCDocument
+from langchain_core.documents import Document as LCDocument
 
 from core.config import settings
 

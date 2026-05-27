@@ -2,8 +2,8 @@ import logging
 from pathlib import Path
 from typing import List
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document as LCDocument
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document as LCDocument
 
 from core.config import settings
 

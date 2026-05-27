@@ -16,26 +16,54 @@
 | LLM | DeepSeek API（外部）|
 | 文档解析 | Unstructured / PyPDF2 + python-docx |
 | 分块 | RecursiveCharacterTextSplitter (chunk_size=512, overlap=128) |
-| UI | Streamlit |
+| UI | Vue 3 + Vite |
 | 部署 | Docker Compose（可选）|
 
-## 项目结构目标
+## 项目结构
 
 ```
 EnterpriseRAG/
-├── app.py                  # Streamlit UI
-├── document_loader.py      # 文档加载与分块
-├── vector_store.py         # 向量存储与检索
-├── reranker.py             # 重排序模块
-├── qa_chain.py             # 问答链 + 引用输出
-├── config.py               # 配置（API key、模型参数等）
+├── api/                     # FastAPI REST 层
+│   ├── main.py              # 应用工厂 + CORS + 路由注册
+│   ├── auth.py              # 认证端点 /api/auth/*
+│   ├── documents.py         # 文档 CRUD /api/documents/*
+│   ├── qa.py                # 问答端点 /api/qa/ask
+│   ├── conversations.py     # 对话管理 /api/conversations/*
+│   └── deps.py              # JWT 依赖注入
+├── core/                    # 核心共享层
+│   ├── config.py            # Pydantic Settings
+│   ├── models.py            # SQLAlchemy ORM
+│   ├── schemas.py           # Pydantic 请求/响应模型
+│   └── database.py          # 异步引擎 + Session
+├── rag/                     # RAG 引擎
+│   ├── document_loader.py   # 文档解析 + 分块
+│   ├── vector_store.py      # Chroma 向量存储 + 检索
+│   ├── reranker.py          # BGE Reranker 重排序
+│   ├── qa_chain.py          # DeepSeek LLM 调用 + 引用解析
+│   └── memory.py            # 对话摘要压缩
+├── frontend/                # Vue 3 + Vite 前端
+│   ├── src/
+│   │   ├── views/           # LoginView, ChatView
+│   │   ├── components/      # ChatMessage, DocumentList, ConversationList
+│   │   ├── stores/          # Pinia auth store
+│   │   ├── router/          # Vue Router
+│   │   ├── api/             # API 客户端
+│   │   └── styles/          # 全局 CSS
+│   ├── index.html
+│   ├── vite.config.ts       # Vite 配置含 API 代理
+│   └── nginx.conf           # 生产部署配置
+├── docs/
+│   └── api.md               # API 接口文档
+├── tests/
+│   ├── test_auth.py
+│   ├── test_ingestion.py
+│   ├── test_retrieval.py
+│   ├── test_memory.py
+│   └── test_qa.py
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
-└── tests/
-    ├── test_loader.py
-    ├── test_retrieval.py
-    └── test_qa.py
+└── CLAUDE.md
 ```
 
 ## 核心数据流
@@ -59,24 +87,28 @@ EnterpriseRAG/
 | 3 | 向量存储与检索 | `vector_store.py` + Top-K测试 |
 | 4 | Rerank集成 | `reranker.py` + 效果对比 |
 | 5 | LLM问答链 | `qa_chain.py` + 可回答问题 |
-| 6 | Streamlit UI | `app.py` 可交互演示 |
+| 6 | Vue3 前端 | `frontend/` 可交互演示 |
 | 7 | 性能调优 | 最佳参数记录 |
 | 8 | README + 演示 | GitHub仓库完整 |
 
 ## 命令
 
 ```bash
-# 虚拟环境
+# Python 虚拟环境
 python -m venv .venv && source .venv/bin/activate
-
-# 安装依赖
 pip install -r requirements.txt
 
-# 运行 UI
-streamlit run app.py
+# 运行 API 服务
+uvicorn api.main:app --reload
 
-# 运行 API
-uvicorn api:app --reload
+# 前端开发（新终端）
+cd frontend && npm install && npm run dev
+
+# 前端构建
+cd frontend && npm run build
+
+# 全栈 Docker 启动
+docker compose up -d
 
 # 测试
 pytest tests/ -v

@@ -58,7 +58,7 @@ async def test_register_username_too_short(client):
 async def test_register_duplicate(client):
     await client.post("/api/auth/register", json={"username": "dupuser", "password": "pass12345"})
     resp = await client.post("/api/auth/register", json={"username": "dupuser", "password": "pass45678"})
-    assert resp.status_code == 400
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio

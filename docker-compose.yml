@@ -25,16 +25,14 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
-  streamlit:
-    build: .
-    container_name: enterpriserag-ui
+  frontend:
+    image: nginx:alpine
+    container_name: enterpriserag-frontend
     ports:
-      - "8501:8501"
-    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+      - "80:80"
     volumes:
-      - .:/app
-    env_file:
-      - .env
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
     depends_on:
       - api
 

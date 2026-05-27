@@ -2,17 +2,29 @@ import logging
 import uuid
 from typing import List, Optional, Tuple
 
-from langchain.schema import Document as LCDocument
+from langchain_core.documents import Document as LCDocument
 from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# BGE query instruction for retrieval tasks
+BGE_QUERY_INSTRUCTION = "为这个句子生成表示以用于检索相关文章："
 
-def get_embedding_model() -> HuggingFaceBgeEmbeddings:
-    return HuggingFaceBgeEmbeddings(
+
+class BGEEmbeddings(HuggingFaceEmbeddings):
+    """HuggingFaceEmbeddings with BGE query instruction prepended."""
+
+    query_instruction: str = BGE_QUERY_INSTRUCTION
+
+    def embed_query(self, text: str) -> List[float]:
+        return super().embed_query(self.query_instruction + text)
+
+
+def get_embedding_model() -> HuggingFaceEmbeddings:
+    return BGEEmbeddings(
         model_name=settings.EMBEDDING_MODEL,
         model_kwargs={"device": settings.EMBEDDING_DEVICE},
         encode_kwargs={"normalize_embeddings": True},

@@ -2,6 +2,10 @@ import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
+# China HF mirror — set before any model import
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+from pydantic import model_validator
+
 
 class Settings(BaseSettings):
     # PostgreSQL
@@ -25,9 +29,9 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_MINUTES: int = 1440  # 24 hours
 
     # DeepSeek
-    DEEPSEEK_API_KEY: str = ""
-    DEEPSEEK_API_BASE: str = "https://api.deepseek.com/v1"
-    LLM_MODEL: str = "deepseek-chat"
+    DEEPSEEK_API_KEY: str = ""  # Must be set in .env
+    DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
+    LLM_MODEL: str = "deepseek-v4-flash"
     LLM_TEMPERATURE: float = 0.1
     LLM_MAX_TOKENS: int = 2048
 
@@ -50,6 +54,12 @@ class Settings(BaseSettings):
     # Chunking
     CHUNK_SIZE: int = 512
     CHUNK_OVERLAP: int = 128
+
+    @model_validator(mode="after")
+    def _check_secrets(self):
+        if not self.DEEPSEEK_API_KEY:
+            raise ValueError("DEEPSEEK_API_KEY must be set in .env file")
+        return self
 
     class Config:
         env_file = ".env"

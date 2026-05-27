@@ -2,7 +2,7 @@ import logging
 import re
 from typing import List, Tuple
 
-from langchain.schema import Document as LCDocument
+from langchain_core.documents import Document as LCDocument
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 

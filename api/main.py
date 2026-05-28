@@ -12,6 +12,7 @@ from api.conversations import router as conversations_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # New tables (MessageFeedback, Category etc.) are auto-created by init_db() via SQLAlchemy create_all
     await init_db()
     yield
 

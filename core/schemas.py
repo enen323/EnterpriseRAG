@@ -90,3 +90,64 @@ class QAResponse(BaseModel):
     answer: str
     sources: list[SourceItem]
     conversation_id: str
+    message_id: str = ""
+    suggested_questions: list[str] | None = None
+
+
+# === Feedback ===
+class FeedbackCreate(BaseModel):
+    message_id: str
+    feedback: str = ""
+    comment: str | None = None
+
+    @field_validator("feedback")
+    @classmethod
+    def feedback_valid(cls, v: str) -> str:
+        if v not in ("up", "down"):
+            raise ValueError("feedback must be 'up' or 'down'")
+        return v
+
+
+class FeedbackOut(BaseModel):
+    id: uuid.UUID
+    message_id: uuid.UUID
+    feedback: str
+    comment: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# === Categories ===
+class CategoryCreate(BaseModel):
+    name: str
+
+
+class CategoryOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# === Admin ===
+class UserAdminOut(BaseModel):
+    id: uuid.UUID
+    username: str
+    role: str
+    doc_count: int
+    conv_count: int
+    created_at: datetime
+
+
+class StatsOut(BaseModel):
+    user_count: int
+    doc_count: int
+    message_count: int
+    new_users_7d: int
+
+
+# === Document Preview ===
+class PreviewOut(BaseModel):
+    content: str
+    filename: str
+    file_type: str

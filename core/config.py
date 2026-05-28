@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = 512
     CHUNK_OVERLAP: int = 128
 
+    # Diversity
+    RERANKER_DIVERSITY_LAMBDA: float = 0.3
+
+    # Storage
+    STORAGE_DIR: str = str(Path(__file__).parent.parent / "storage")
+
+    # Streaming
+    STREAMING_MAX_TOKENS: int = 4096
+
+    # Follow-up generation (stream path)
+    FOLLOWUP_MAX_TOKENS: int = 200
+
     @model_validator(mode="after")
     def _check_secrets(self):
         if not self.DEEPSEEK_API_KEY:
@@ -67,3 +79,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Ensure storage directory exists at import time
+storage_path = Path(settings.STORAGE_DIR)
+storage_path.mkdir(parents=True, exist_ok=True)

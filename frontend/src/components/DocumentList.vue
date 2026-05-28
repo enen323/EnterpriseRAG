@@ -5,7 +5,7 @@
     <div class="upload-area">
       <label class="upload-btn">
         上传文档
-        <input type="file" accept=".pdf,.md,.txt,.docx" hidden @change="uploadFile" />
+        <input type="file" accept=".pdf,.md,.txt,.docx,.zip" multiple hidden @change="uploadFiles" />
       </label>
     </div>
 
@@ -20,19 +20,36 @@
           {{ statusLabel(doc.status) }}
         </span>
       </div>
-      <button class="btn-icon" title="删除" @click="removeDoc(doc.id)">
-        ✕
-      </button>
+      <div class="doc-actions">
+        <button class="btn-icon" title="预览" @click="previewDoc(doc)">&#128065;</button>
+        <button class="btn-icon" title="删除" @click="removeDoc(doc.id)">
+          &#10005;
+        </button>
+      </div>
     </div>
   </div>
+
+  <DocPreview
+    :visible="previewVisible"
+    :content="previewContent"
+    :filename="previewFilename"
+    :file-type="previewFileType"
+    @close="previewVisible = false"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { docApi, type DocumentOut } from '../api'
+import DocPreview from './DocPreview.vue'
 
 const docs = ref<DocumentOut[]>([])
 const uploading = ref(false)
+
+const previewVisible = ref(false)
+const previewContent = ref('')
+const previewFilename = ref('')
+const previewFileType = ref('')
 
 async function load() {
   try {
@@ -40,19 +57,39 @@ async function load() {
   } catch {}
 }
 
-async function uploadFile(e: Event) {
+async function uploadFiles(e: Event) {
   const input = e.target as HTMLInputElement
-  const file = input?.files?.[0]
-  if (!file) return
+  const files = input?.files
+  if (!files || files.length === 0) return
   uploading.value = true
+  let successCount = 0
+  let failCount = 0
+  for (const file of Array.from(files)) {
+    try {
+      await docApi.upload(file)
+      successCount++
+    } catch (err: any) {
+      failCount++
+      alert(`${file.name} failed: ${err.message}`)
+    }
+  }
+  await load()
+  uploading.value = false
+  input.value = ''
+  if (successCount > 0 && failCount > 0) {
+    alert(`${successCount} uploaded, ${failCount} failed`)
+  }
+}
+
+async function previewDoc(doc: DocumentOut) {
   try {
-    await docApi.upload(file)
-    await load()
+    const res = await docApi.preview(doc.id)
+    previewContent.value = res.content
+    previewFilename.value = res.filename
+    previewFileType.value = res.file_type
+    previewVisible.value = true
   } catch (err: any) {
-    alert(err.message || '上传失败')
-  } finally {
-    uploading.value = false
-    input.value = ''
+    alert(err.message || 'Preview failed')
   }
 }
 
@@ -164,6 +201,13 @@ onMounted(load)
 .doc-status.failed {
   background: #fbe9e7;
   color: #c62828;
+}
+
+.doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .btn-icon {

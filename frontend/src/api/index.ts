@@ -140,6 +140,7 @@ export const docApi = {
   upload: (file: File) => api.upload<DocumentOut>('/api/documents/upload', file),
   delete: (id: string) => api.delete<void>(`/api/documents/${id}`),
   status: (id: string) => api.get<DocumentOut>(`/api/documents/${id}/status`),
+  preview: (id: string) => api.get<{ content: string; filename: string; file_type: string }>(`/api/documents/${id}/preview`),
 }
 
 // Conversations

@@ -19,6 +19,7 @@
             <p class="source-text">{{ s.chunk_text }}</p>
           </div>
         </div>
+      </div>
       <div v-if="message.role === 'assistant' && message.id && !message.id.startsWith('temp-')" class="feedback">
         <button :class="['btn-feedback', { active: feedbackValue === 'up' }]" @click="vote('up')" title="Helpful">👍</button>
         <button :class="['btn-feedback', { active: feedbackValue === 'down' }]" @click="vote('down')" title="Not helpful">👎</button>
@@ -26,6 +27,12 @@
           <textarea v-model="commentText" placeholder="Optional comment" rows="2"></textarea>
           <button class="btn-submit-comment" @click="submitFeedback">Submit</button>
         </div>
+      </div>
+      <div v-if="message.suggested_questions && message.suggested_questions.length > 0" class="suggested">
+        <span class="suggested-label">Follow up:</span>
+        <button v-for="(q, i) in message.suggested_questions" :key="i" class="chip" @click="$emit('suggestClick', q)">
+          {{ q }}
+        </button>
       </div>
     </div>
   </div>
@@ -257,5 +264,36 @@ async function submitFeedback() {
   font-size: 12px;
   cursor: pointer;
   align-self: flex-end;
+}
+
+.suggested {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.suggested-label {
+  font-size: 12px;
+  color: #666;
+  margin-right: 6px;
+}
+
+.chip {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 4px 10px;
+  background: #f0f0f0;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.chip:hover {
+  background: #e3f2fd;
+  border-color: #1a73e8;
+  color: #1a73e8;
 }
 </style>

@@ -33,6 +33,7 @@
           v-for="msg in messages"
           :key="msg.id"
           :message="msg"
+          @suggest-click="(q: string) => { question = q; sendQuestion() }"
         />
         <div v-if="loading" class="message assistant">
           <div class="avatar">AI</div>

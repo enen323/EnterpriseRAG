@@ -92,7 +92,7 @@ async def ask(
 
     # Ask LLM
     try:
-        answer, parsed_sources = await ask_question(req.question, reranked, memory_summary)
+        answer, parsed_sources, suggested = await ask_question(req.question, reranked, memory_summary)
     except Exception as e:
         logger.error(f"LLM call failed: {e}", exc_info=True)
         raise HTTPException(status_code=502, detail=f"LLM API error: {str(e)}")
@@ -117,6 +117,7 @@ async def ask(
         sources=source_items,
         conversation_id=str(conv_id),
         message_id=str(assistant_msg.id),
+        suggested_questions=suggested or None,
     )
 
 

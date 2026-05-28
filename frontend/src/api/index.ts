@@ -103,6 +103,7 @@ export interface MessageOut {
   content: string
   sources: SourceItem[] | null
   created_at: string
+  suggested_questions?: string[]
 }
 
 export interface SourceItem {
@@ -116,6 +117,7 @@ export interface QAResponse {
   sources: SourceItem[]
   conversation_id: string
   message_id?: string
+  suggested_questions?: string[]
 }
 
 export interface QARequest {

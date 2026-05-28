@@ -18,6 +18,7 @@ Rules:
 3. If multiple sources support a claim, cite all of them: 【来源: file1.md】【来源: file2.pdf】
 4. Be concise and accurate. Use Chinese unless the question is in English.
 5. Do not make up information or speculate beyond the context.
+6. After your answer, generate 3 short follow-up questions the user might ask next. Format each on a new line, prefixed with "Q:". Keep each under 60 characters.
 
 Context fragments:
 {context}
@@ -103,8 +104,8 @@ async def ask_question(
     question: str,
     context_docs: List[Tuple[LCDocument, float]],
     memory_summary: str = "",
-) -> Tuple[str, list]:
-    """Call DeepSeek API with context and return (answer, source_filenames)."""
+) -> Tuple[str, list, list[str]]:
+    """Call DeepSeek API with context and return (answer, source_filenames, suggested_questions)."""
     if not settings.DEEPSEEK_API_KEY:
         raise ValueError("DEEPSEEK_API_KEY is not configured")
 
@@ -113,7 +114,8 @@ async def ask_question(
 
     answer = await _call_llm(prompt, question)
     answer, sources = _parse_sources(answer)
-    return answer, sources
+    answer, suggested = extract_suggested_questions(answer)
+    return answer, sources, suggested
 
 
 @retry(

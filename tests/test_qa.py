@@ -28,3 +28,20 @@ def test_parse_sources_no_citations():
     clean, sources = _parse_sources(answer)
     assert sources == []
     assert clean == "No citations here."
+
+
+@pytest.mark.asyncio
+async def test_extract_suggested_questions():
+    from rag.qa_chain import extract_suggested_questions
+
+    answer = """Based on documents, Python is dynamically typed.
+
+Q: What are Python's main data types?
+Q: How does Python compare to Java?
+Q: Is Python good for beginners?"""
+
+    clean, questions = extract_suggested_questions(answer)
+    assert "dynamically typed" in clean
+    assert "Q:" not in clean
+    assert len(questions) == 3
+    assert "What are Python's main data types?" in questions

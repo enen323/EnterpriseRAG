@@ -64,7 +64,7 @@
 import { ref, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { qaApi, convApi, type MessageOut, type SourceItem } from '../api'
+import { qaApi, convApi, type MessageOut, type SourceItem, type StreamMetadata } from '../api'
 import ChatMessage from '../components/ChatMessage.vue'
 import DocumentList from '../components/DocumentList.vue'
 import ConversationList from '../components/ConversationList.vue'
@@ -119,49 +119,66 @@ async function sendQuestion() {
     created_at: new Date().toISOString(),
   }
   messages.value.push(tempUserMsg)
+
+  // Add temporary assistant message — content updates progressively via SSE
+  const tempAssistantMsg: MessageOut = {
+    id: 'temp-assistant-' + Date.now(),
+    role: 'assistant',
+    content: '',
+    sources: null,
+    created_at: new Date().toISOString(),
+  }
+  messages.value.push(tempAssistantMsg)
   scrollToBottom()
 
-  try {
-    const res = await qaApi.ask({
-      question: q,
-      conversation_id: conversationId.value || null,
-    })
+  let accumulated = ''
 
-    // Replace temp user message + add assistant response
-    // Remove the temp message
-    messages.value = messages.value.filter(m => m.id !== tempUserMsg.id)
-
-    // Add real user message
-    messages.value.push({
-      id: 'user-' + Date.now(),
-      role: 'user',
-      content: q,
-      sources: null,
-      created_at: new Date().toISOString(),
-    })
-
-    // Add assistant response
-    messages.value.push({
-      id: 'assistant-' + Date.now(),
-      role: 'assistant',
-      content: res.answer,
-      sources: res.sources as SourceItem[],
-      created_at: new Date().toISOString(),
-    })
-
-    conversationId.value = res.conversation_id
-
-    // Refresh conversation list
-    convListRef.value?.load()
-    scrollToBottom()
-  } catch (e: any) {
-    error.value = e.message || '请求失败'
-    // Remove temp user message on error
-    messages.value = messages.value.filter(m => m.id !== tempUserMsg.id)
-  } finally {
-    loading.value = false
-  }
+  qaApi.askStream({
+    question: q,
+    conversation_id: conversationId.value || null,
+  }, {
+    onToken(token: string) {
+      accumulated += token
+      tempAssistantMsg.content = accumulated
+      scrollToBottom()
+    },
+    onDone(metadata: StreamMetadata) {
+      // Replace temp messages with real persisted messages
+      messages.value = messages.value.filter(
+        m => m.id !== tempUserMsg.id && m.id !== tempAssistantMsg.id
+      )
+      messages.value.push({
+        id: 'user-' + Date.now(),
+        role: 'user',
+        content: q,
+        sources: null,
+        created_at: new Date().toISOString(),
+      })
+      messages.value.push({
+        id: 'assistant-' + Date.now(),
+        role: 'assistant',
+        content: accumulated,
+        sources: metadata.sources as SourceItem[],
+        created_at: new Date().toISOString(),
+      })
+      conversationId.value = metadata.conversation_id
+      convListRef.value?.load()
+      scrollToBottom()
+      loading.value = false
+    },
+    onError(msg: string) {
+      error.value = msg
+      // Remove temp messages on error
+      messages.value = messages.value.filter(
+        m => m.id !== tempUserMsg.id && m.id !== tempAssistantMsg.id
+      )
+      loading.value = false
+    },
+  })
 }
+
+// Non-streaming fallback — kept for reference or when SSE is unavailable
+// async function sendQuestionNonStreaming(q: string, tempUserMsg: MessageOut) { ... }
 
 function scrollToBottom() {
   nextTick(() => {

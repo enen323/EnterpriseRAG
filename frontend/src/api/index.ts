@@ -143,7 +143,85 @@ export const convApi = {
   delete: (id: string) => api.delete<void>(`/api/conversations/${id}`),
 }
 
+export interface StreamMetadata {
+  conversation_id: string
+  message_id: string
+  sources: SourceItem[]
+  suggested_questions?: string[]
+}
+
+export interface StreamCallbacks {
+  onToken: (token: string) => void
+  onDone: (metadata: StreamMetadata) => void
+  onError: (error: string) => void
+}
+
 // QA
 export const qaApi = {
   ask: (data: QARequest) => api.post<QAResponse>('/api/qa/ask', data),
+  askStream: (data: QARequest, callbacks: StreamCallbacks): AbortController => {
+    const controller = new AbortController()
+
+    fetch(`${BASE_URL}/api/qa/ask/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        callbacks.onError(errData.detail || `Request failed (${response.status})`)
+        return
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        callbacks.onError('No response body')
+        return
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // Split on newlines and process complete lines
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''  // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const payload = line.slice(6).trim()
+            if (!payload) continue
+            try {
+              const event = JSON.parse(payload)
+              const { type, data } = event
+              if (type === 'token') {
+                callbacks.onToken(data.token)
+              } else if (type === 'metadata') {
+                callbacks.onDone(data as StreamMetadata)
+              } else if (type === 'error') {
+                callbacks.onError(data.message)
+              }
+            } catch {
+              // Skip malformed JSON lines
+            }
+          }
+        }
+      }
+    }).catch((err: Error) => {
+      if (err.name !== 'AbortError') {
+        callbacks.onError(err.message || 'Network error')
+      }
+    })
+
+    return controller
+  },
 }

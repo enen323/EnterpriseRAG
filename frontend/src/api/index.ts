@@ -87,6 +87,13 @@ export interface DocumentOut {
   file_type: string
   status: string
   chunk_count: number
+  category_id?: string | null
+  created_at: string
+}
+
+export interface CategoryOut {
+  id: string
+  name: string
   created_at: string
 }
 
@@ -136,11 +143,13 @@ export const authApi = {
 
 // Documents
 export const docApi = {
-  list: () => api.get<DocumentOut[]>('/api/documents'),
+  list: (params?: string) => api.get<DocumentOut[]>(`/api/documents${params || ''}`),
   upload: (file: File) => api.upload<DocumentOut>('/api/documents/upload', file),
   delete: (id: string) => api.delete<void>(`/api/documents/${id}`),
   status: (id: string) => api.get<DocumentOut>(`/api/documents/${id}/status`),
   preview: (id: string) => api.get<{ content: string; filename: string; file_type: string }>(`/api/documents/${id}/preview`),
+  setCategory: (docId: string, categoryId: string | null) =>
+    api.patch<void>(`/api/documents/${docId}/category`, { name: categoryId || '' }),
 }
 
 // Conversations
@@ -233,4 +242,19 @@ export const qaApi = {
 
     return controller
   },
+}
+
+// Admin
+export const adminApi = {
+  users: () => api.get<any[]>('/api/admin/users'),
+  documents: () => api.get<any[]>('/api/admin/documents'),
+  stats: () => api.get<any>('/api/admin/stats'),
+  deleteUser: (id: string) => api.delete<void>(`/api/admin/users/${id}`),
+}
+
+// Categories
+export const categoryApi = {
+  list: () => api.get<CategoryOut[]>('/api/categories'),
+  create: (name: string) => api.post<CategoryOut>('/api/categories', { name }),
+  delete: (id: string) => api.delete<void>(`/api/categories/${id}`),
 }

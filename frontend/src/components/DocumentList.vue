@@ -2,6 +2,8 @@
   <div class="doc-section">
     <h3 class="section-title">文档管理</h3>
 
+    <CategorySelector @change="onCategoryChange" />
+
     <div class="upload-area">
       <label class="upload-btn">
         上传文档
@@ -42,18 +44,26 @@
 import { ref, onMounted } from 'vue'
 import { docApi, type DocumentOut } from '../api'
 import DocPreview from './DocPreview.vue'
+import CategorySelector from './CategorySelector.vue'
 
 const docs = ref<DocumentOut[]>([])
 const uploading = ref(false)
+const activeCategory = ref<string | null>(null)
 
 const previewVisible = ref(false)
 const previewContent = ref('')
 const previewFilename = ref('')
 const previewFileType = ref('')
 
+function onCategoryChange(catId: string | null) {
+  activeCategory.value = catId
+  load()
+}
+
 async function load() {
   try {
-    docs.value = await docApi.list()
+    const params = activeCategory.value ? `?category=${activeCategory.value}` : ''
+    docs.value = await docApi.list(params)
   } catch {}
 }
 

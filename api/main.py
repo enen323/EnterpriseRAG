@@ -8,6 +8,8 @@ from api.auth import router as auth_router
 from api.documents import router as documents_router
 from api.qa import router as qa_router
 from api.conversations import router as conversations_router
+from api.admin import router as admin_router
+from api.categories import router as categories_router
 
 
 @asynccontextmanager
@@ -31,6 +33,8 @@ app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(qa_router)
 app.include_router(conversations_router)
+app.include_router(admin_router)
+app.include_router(categories_router)
 
 
 @app.get("/health")

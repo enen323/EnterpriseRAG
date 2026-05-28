@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from core.models import User, Document, DocumentStatus
-from core.schemas import DocumentOut, PreviewOut
+from core.schemas import DocumentOut, PreviewOut, CategoryCreate
 from core.config import settings
 from api.deps import get_current_user
 from rag.document_loader import load_document, split_documents
@@ -31,10 +31,13 @@ ALLOWED_EXTENSIONS = {".pdf", ".md", ".txt", ".docx"}
 async def list_documents(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    category: str | None = None,
 ):
-    result = await db.execute(
-        select(Document).where(Document.user_id == current_user.id).order_by(Document.created_at.desc())
-    )
+    query = select(Document).where(Document.user_id == current_user.id)
+    if category:
+        query = query.where(Document.category_id == uuid.UUID(category))
+    query = query.order_by(Document.created_at.desc())
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -243,6 +246,23 @@ async def delete_document(
     delete_document_chunks(str(doc_id))
 
     await db.delete(doc)
+    await db.commit()
+
+
+@router.patch("/{doc_id}/category", status_code=204)
+async def set_document_category(
+    doc_id: uuid.UUID,
+    req: CategoryCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(
+        select(Document).where(Document.id == doc_id, Document.user_id == current_user.id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    doc.category_id = uuid.UUID(req.name) if req.name else None
     await db.commit()
 
 

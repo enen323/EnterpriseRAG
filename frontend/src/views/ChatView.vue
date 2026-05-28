@@ -17,7 +17,10 @@
 
       <div class="sidebar-footer">
         <span class="user-name">{{ auth.user?.username }}</span>
-        <button class="btn-logout" @click="handleLogout">退出</button>
+        <div class="sidebar-footer-actions">
+          <router-link v-if="auth.user?.role === 'admin'" to="/admin" class="admin-link">管理</router-link>
+          <button class="btn-logout" @click="handleLogout">退出</button>
+        </div>
       </div>
     </aside>
 
@@ -251,6 +254,22 @@ onMounted(() => {
   font-size: 13px;
   color: #333;
   font-weight: 500;
+}
+
+.sidebar-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-link {
+  font-size: 13px;
+  color: #1a73e8;
+  text-decoration: none;
+}
+
+.admin-link:hover {
+  text-decoration: underline;
 }
 
 .btn-logout {

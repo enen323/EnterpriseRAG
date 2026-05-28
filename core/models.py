@@ -75,6 +75,7 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     conversation = relationship("Conversation", back_populates="messages")
+    feedback = relationship("MessageFeedback", back_populates="message", cascade="all, delete-orphan")
 
 
 class MessageFeedback(Base):
@@ -86,6 +87,8 @@ class MessageFeedback(Base):
     feedback: Mapped[str] = mapped_column(String(4), nullable=False)  # "up" or "down"
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    message = relationship("Message", back_populates="feedback")
 
     __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_message_user_feedback"),)
 

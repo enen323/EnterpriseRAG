@@ -49,6 +49,8 @@ class DocumentOut(BaseModel):
     file_type: str
     status: str
     chunk_count: int
+    category_id: uuid.UUID | None = None
+    storage_path: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -97,7 +99,7 @@ class QAResponse(BaseModel):
 # === Feedback ===
 class FeedbackCreate(BaseModel):
     message_id: str
-    feedback: str = ""
+    feedback: str
     comment: str | None = None
 
     @field_validator("feedback")
@@ -120,6 +122,13 @@ class FeedbackOut(BaseModel):
 # === Categories ===
 class CategoryCreate(BaseModel):
     name: str
+
+    @field_validator("name")
+    @classmethod
+    def name_valid(cls, v: str) -> str:
+        if len(v) < 1 or len(v) > 128:
+            raise ValueError("Category name must be 1-128 characters")
+        return v
 
 
 class CategoryOut(BaseModel):

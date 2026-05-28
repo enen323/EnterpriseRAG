@@ -11,7 +11,7 @@ from core.models import User, Conversation, Message, Document, DocumentStatus
 from core.schemas import QARequest, QAResponse, SourceItem
 from api.deps import get_current_user
 from rag.vector_store import search_documents
-from rag.reranker import rerank
+from rag.reranker import rerank_with_diversity
 from rag.qa_chain import ask_question
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ async def ask(
     raw_results = search_documents(req.question, filter={"user_id": str(current_user.id)})
 
     # Rerank
-    reranked = rerank(req.question, raw_results)
+    reranked = rerank_with_diversity(req.question, raw_results)
 
     # Build source items from reranked results
     source_items = []

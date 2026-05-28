@@ -34,7 +34,6 @@ def test_rerank_empty_list():
 @pytest.mark.asyncio
 async def test_rerank_diversity_reduces_duplicates():
     """rerank_with_diversity should select diverse chunks over similar ones."""
-    from unittest.mock import patch, MagicMock
     from rag.reranker import rerank_with_diversity
     from langchain_core.documents import Document as LCDocument
     import numpy as np

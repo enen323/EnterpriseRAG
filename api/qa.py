@@ -9,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
-from core.models import User, Conversation, Message, Document, DocumentStatus
-from core.schemas import QARequest, QAResponse, SourceItem
+from core.models import User, Conversation, Message, MessageFeedback, Document, DocumentStatus
+from core.schemas import QARequest, QAResponse, SourceItem, FeedbackCreate
 from api.deps import get_current_user
 from rag.vector_store import search_documents
 from rag.reranker import rerank_with_diversity
@@ -110,11 +110,13 @@ async def ask(
     )
     db.add(assistant_msg)
     await db.commit()
+    await db.refresh(assistant_msg)
 
     return QAResponse(
         answer=answer,
         sources=source_items,
         conversation_id=str(conv_id),
+        message_id=str(assistant_msg.id),
     )
 
 
@@ -267,3 +269,44 @@ async def ask_stream(
             yield format_sse_event("error", {"message": f"Internal error: {str(e)}"})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.patch("/feedback")
+async def submit_feedback(
+    req: FeedbackCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Submit or update feedback on an assistant message."""
+    msg_result = await db.execute(
+        select(Message)
+        .join(Conversation)
+        .where(Message.id == uuid.UUID(req.message_id), Conversation.user_id == current_user.id)
+    )
+    msg = msg_result.scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    result = await db.execute(
+        select(MessageFeedback).where(
+            MessageFeedback.message_id == msg.id,
+            MessageFeedback.user_id == current_user.id,
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.feedback = req.feedback
+        existing.comment = req.comment
+    else:
+        fb = MessageFeedback(
+            id=uuid.uuid4(),
+            message_id=msg.id,
+            user_id=current_user.id,
+            feedback=req.feedback,
+            comment=req.comment,
+        )
+        db.add(fb)
+
+    await db.commit()
+    return {"status": "ok"}

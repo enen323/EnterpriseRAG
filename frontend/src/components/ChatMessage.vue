@@ -19,6 +19,13 @@
             <p class="source-text">{{ s.chunk_text }}</p>
           </div>
         </div>
+      <div v-if="message.role === 'assistant' && message.id && !message.id.startsWith('temp-')" class="feedback">
+        <button :class="['btn-feedback', { active: feedbackValue === 'up' }]" @click="vote('up')" title="Helpful">👍</button>
+        <button :class="['btn-feedback', { active: feedbackValue === 'down' }]" @click="vote('down')" title="Not helpful">👎</button>
+        <div v-if="showCommentBox" class="comment-box">
+          <textarea v-model="commentText" placeholder="Optional comment" rows="2"></textarea>
+          <button class="btn-submit-comment" @click="submitFeedback">Submit</button>
+        </div>
       </div>
     </div>
   </div>
@@ -27,10 +34,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { MessageOut } from '../api'
+import { qaApi } from '../api'
 
-defineProps<{ message: MessageOut }>()
+const props = defineProps<{ message: MessageOut }>()
+const emit = defineEmits<{ suggestClick: [question: string] }>()
 
 const showSources = ref(false)
+const feedbackValue = ref<string | null>(null)
+const showCommentBox = ref(false)
+const commentText = ref('')
+
+async function vote(type: string) {
+  if (feedbackValue.value === type) {
+    feedbackValue.value = null
+  } else {
+    feedbackValue.value = type
+    if (type === 'down') {
+      showCommentBox.value = true
+    } else {
+      await qaApi.feedback({ message_id: props.message.id as string, feedback: type })
+    }
+  }
+}
+
+async function submitFeedback() {
+  await qaApi.feedback({
+    message_id: props.message.id as string,
+    feedback: feedbackValue.value || 'down',
+    comment: commentText.value || undefined,
+  })
+  showCommentBox.value = false
+  commentText.value = ''
+}
 </script>
 
 <style scoped>
@@ -176,5 +211,51 @@ const showSources = ref(false)
 
 .user .source-text {
   color: rgba(255, 255, 255, 0.7);
+}
+
+.feedback {
+  margin-top: 8px;
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.btn-feedback {
+  background: none;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-feedback.active {
+  border-color: #1a73e8;
+  background: #e8f0fe;
+}
+
+.comment-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comment-box textarea {
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 12px;
+  width: 200px;
+}
+
+.btn-submit-comment {
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  align-self: flex-end;
 }
 </style>

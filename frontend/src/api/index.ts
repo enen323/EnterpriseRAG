@@ -51,6 +51,9 @@ export const api = {
   delete<T>(path: string): Promise<T> {
     return request<T>('DELETE', path)
   },
+  patch<T>(path: string, body?: any): Promise<T> {
+    return request<T>('PATCH', path, { body: body ? JSON.stringify(body) : undefined })
+  },
   async upload<T>(path: string, file: File): Promise<T> {
     const formData = new FormData()
     formData.append('file', file)
@@ -112,6 +115,7 @@ export interface QAResponse {
   answer: string
   sources: SourceItem[]
   conversation_id: string
+  message_id?: string
 }
 
 export interface QARequest {
@@ -159,6 +163,8 @@ export interface StreamCallbacks {
 // QA
 export const qaApi = {
   ask: (data: QARequest) => api.post<QAResponse>('/api/qa/ask', data),
+  feedback: (params: { message_id: string; feedback: string; comment?: string }) =>
+    api.patch<void>('/api/qa/feedback', params),
   askStream: (data: QARequest, callbacks: StreamCallbacks): AbortController => {
     const controller = new AbortController()
 

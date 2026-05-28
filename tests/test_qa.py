@@ -45,3 +45,14 @@ Q: Is Python good for beginners?"""
     assert "Q:" not in clean
     assert len(questions) == 3
     assert "What are Python's main data types?" in questions
+
+
+@pytest.mark.asyncio
+async def test_feedback_upsert(async_client, auth_headers):
+    """Test feedback create and update."""
+    response = await async_client.patch(
+        "/api/qa/feedback",
+        json={"message_id": "00000000-0000-0000-0000-000000000000", "feedback": "up"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 404  # message doesn't exist

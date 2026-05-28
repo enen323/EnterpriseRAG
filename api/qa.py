@@ -77,8 +77,6 @@ async def ask(
     )
     prev_messages = prev_result.scalars().all()
 
-    from rag.memory import ConversationMemory
-
     memory = ConversationMemory()
     # Build summary from previous turns (excluding current user message)
     prev_pairs = []
@@ -236,7 +234,7 @@ async def ask_stream(
             clean_answer, source_filenames = _parse_sources(full_answer)
 
             # 2. Check for any inline Q: lines the LLM may have included
-            clean_answer, inline_questions = extract_suggested_questions(clean_answer)
+            clean_answer, _ = extract_suggested_questions(clean_answer)
 
             # 3. Generate follow-up questions via a lightweight LLM call
             suggested_questions = await generate_followup_questions(req.question, clean_answer)

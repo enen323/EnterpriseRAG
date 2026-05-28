@@ -139,7 +139,10 @@ async function sendQuestion() {
   }, {
     onToken(token: string) {
       accumulated += token
-      tempAssistantMsg.content = accumulated
+      const idx = messages.value.findIndex(m => m.id === tempAssistantMsg.id)
+      if (idx >= 0) {
+        messages.value[idx] = { ...messages.value[idx], content: accumulated }
+      }
       scrollToBottom()
     },
     onDone(metadata: StreamMetadata) {

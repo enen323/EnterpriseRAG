@@ -92,9 +92,7 @@ async def generate_followup_questions(question: str, answer: str) -> list[str]:
             ],
         )
         content = response.choices[0].message.content or ""
-        # The prompt asks the LLM to prefix each line with "Q:", so we parse
-        # with a synthetic prefix to make the extraction reliable.
-        _, questions = extract_suggested_questions(f"Q: {content}")
+        _, questions = extract_suggested_questions(content)
         return questions
     except Exception as e:
         logger.warning(f"Failed to generate follow-up questions: {e}")

@@ -38,7 +38,7 @@ def _load_md(path: Path) -> List[LCDocument]:
 
 
 def _load_pdf(path: Path) -> List[LCDocument]:
-    from PyPDF2 import PdfReader
+    from pypdf import PdfReader
     reader = PdfReader(str(path))
     docs = []
     for i, page in enumerate(reader.pages):

@@ -170,6 +170,7 @@ export interface StreamCallbacks {
   onToken: (token: string) => void
   onDone: (metadata: StreamMetadata) => void
   onError: (error: string) => void
+  onStatus?: (message: string) => void
 }
 
 // QA
@@ -227,6 +228,8 @@ export const qaApi = {
                 callbacks.onDone(data as StreamMetadata)
               } else if (type === 'error') {
                 callbacks.onError(data.message)
+              } else if (type === 'status') {
+                callbacks.onStatus?.(data.message)
               }
             } catch {
               // Skip malformed JSON lines

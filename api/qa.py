@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 import logging
@@ -56,11 +57,17 @@ async def ask(
     if not docs:
         raise HTTPException(status_code=400, detail="No processed documents found. Upload documents first.")
 
-    # Retrieve (user-scoped)
-    raw_results = search_documents(req.question, filter={"user_id": str(current_user.id)})
+    loop = asyncio.get_event_loop()
 
-    # Rerank
-    reranked = rerank_with_diversity(req.question, raw_results)
+    # Retrieve (user-scoped) in thread pool
+    raw_results = await loop.run_in_executor(
+        None, lambda: search_documents(req.question, filter={"user_id": str(current_user.id)})
+    )
+
+    # Rerank in thread pool
+    reranked = await loop.run_in_executor(
+        None, lambda: rerank_with_diversity(req.question, raw_results)
+    )
 
     # Build source items from reranked results
     source_items = []
@@ -84,18 +91,21 @@ async def ask(
         if i + 1 < len(prev_messages):
             prev_pairs.append((prev_messages[i].content, prev_messages[i + 1].content))
 
-    # Rebuild summary from last 3 turns (token economy)
-    for user_q, assistant_a in prev_pairs[-3:]:
-        await memory.update_summary(user_q, assistant_a)
+    # Rebuild summary from last 3 turns in single LLM call
+    if prev_pairs:
+        await memory.update_summary_batch(prev_pairs[-3:])
 
     memory_summary = memory.get_summary()
 
     # Ask LLM
     try:
-        answer, parsed_sources, suggested = await ask_question(req.question, reranked, memory_summary)
+        answer, parsed_sources, _ = await ask_question(req.question, reranked, memory_summary)
     except Exception as e:
         logger.error(f"LLM call failed: {e}", exc_info=True)
         raise HTTPException(status_code=502, detail=f"LLM API error: {str(e)}")
+
+    # Generate follow-up questions via separate lightweight call
+    suggested = await generate_followup_questions(req.question, answer)
 
     # Update memory with new turn
     await memory.update_summary(req.question, answer)
@@ -161,43 +171,53 @@ async def ask_stream(
     if not docs:
         raise HTTPException(status_code=400, detail="No processed documents found. Upload documents first.")
 
-    # Retrieve (user-scoped)
-    raw_results = search_documents(req.question, filter={"user_id": str(current_user.id)})
-
-    # Rerank
-    reranked = rerank_with_diversity(req.question, raw_results)
-
-    # Build source items from reranked results
-    source_items = []
-    for doc, score in reranked:
-        source_items.append(SourceItem(
-            filename=doc.metadata.get("source", "unknown"),
-            chunk_text=doc.page_content[:200],
-            score=score,
-        ))
-
-    # Build memory summary from previous conversation turns
-    prev_result = await db.execute(
-        select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at)
-    )
-    prev_messages = prev_result.scalars().all()
-
-    memory = ConversationMemory()
-    prev_pairs = []
-    for i in range(0, len(prev_messages) - 1, 2):
-        if i + 1 < len(prev_messages):
-            prev_pairs.append((prev_messages[i].content, prev_messages[i + 1].content))
-
-    for user_q, assistant_a in prev_pairs[-3:]:
-        await memory.update_summary(user_q, assistant_a)
-
-    memory_summary = memory.get_summary()
-
     async def event_stream():
-        """Inner async generator that drives the SSE stream."""
+        """Inner async generator that drives the SSE stream with progress events."""
         full_answer = ""
 
         try:
+            # ---- progress: retrieval ----
+            yield format_sse_event("status", {"message": "Searching knowledge base..."})
+            loop = asyncio.get_event_loop()
+            raw_results = await loop.run_in_executor(
+                None, lambda: search_documents(req.question, filter={"user_id": str(current_user.id)})
+            )
+
+            # ---- progress: reranking ----
+            yield format_sse_event("status", {"message": "Analyzing results..."})
+            reranked = await loop.run_in_executor(
+                None, lambda: rerank_with_diversity(req.question, raw_results)
+            )
+
+            # Build source items from reranked results
+            source_items = []
+            for doc, score in reranked:
+                source_items.append(SourceItem(
+                    filename=doc.metadata.get("source", "unknown"),
+                    chunk_text=doc.page_content[:200],
+                    score=score,
+                ))
+
+            # Build memory summary from previous conversation turns
+            prev_result = await db.execute(
+                select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at)
+            )
+            prev_messages = prev_result.scalars().all()
+
+            memory = ConversationMemory()
+            prev_pairs = []
+            for i in range(0, len(prev_messages) - 1, 2):
+                if i + 1 < len(prev_messages):
+                    prev_pairs.append((prev_messages[i].content, prev_messages[i + 1].content))
+
+            if prev_pairs:
+                await memory.update_summary_batch(prev_pairs[-3:])
+
+            memory_summary = memory.get_summary()
+
+            # ---- progress: generating answer ----
+            yield format_sse_event("status", {"message": "Generating answer..."})
+
             # Forward every event from the stream generator
             async for sse_str in generate_stream(req.question, reranked, memory_summary):
                 # Parse the event to intercept ``done`` / ``error`` types

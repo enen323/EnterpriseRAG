@@ -20,7 +20,7 @@
 | Reranker | BAAI/bge-reranker-v2-m3 | Precision boost for retrieval |
 | LLM | DeepSeek API (external) | Low cost, fast response |
 | Auth | JWT (python-jose) | Stateless auth, standard practice |
-| UI | Streamlit | Rapid prototyping, good for demo |
+| UI | Vue 3 + Vite | SPA, component-based, production-grade |
 | Document Parse | PyPDF2 + python-docx + txt | Multi-format support |
 | Chunking | RecursiveCharacterTextSplitter (512/128) | Balance completeness & granularity |
 | Deployment | Docker Compose | Containerized, easy setup |
@@ -29,8 +29,8 @@
 
 ```
 ┌───────────────┐     HTTP/JWT    ┌──────────────────────────────────┐
-│  Streamlit UI  │ ─────────────→  │        FastAPI Backend           │
-│  (app.py)      │ ←─────────────  │                                │
+│   Vue 3 SPA   │ ─────────────→  │        FastAPI Backend           │
+│  (frontend/)  │ ←─────────────  │                                │
 └───────────────┘    JSON API      │  ┌─────────┐  ┌──────────────┐  │
                                     │  │ Auth    │  │ Document     │  │
                                     │  │ Module  │  │ Ingestion    │  │
@@ -134,7 +134,7 @@
 
 ```
 EnterpriseRAG/
-├── app.py                        # Streamlit UI entry
+├── frontend/                      # Vue 3 + Vite SPA
 ├── api/                          # FastAPI backend
 │   ├── __init__.py
 │   ├── main.py                   # FastAPI app + router registration
@@ -156,7 +156,7 @@ EnterpriseRAG/
 │   └── memory.py                 # ConversationSummaryMemory wrapper
 ├── requirements.txt
 ├── Dockerfile
-├── docker-compose.yml            # FastAPI + PostgreSQL + Streamlit
+├── docker-compose.yml            # FastAPI + PostgreSQL + nginx frontend
 └── tests/
     ├── __init__.py
     ├── test_auth.py
@@ -190,12 +190,12 @@ EnterpriseRAG/
 | 4. Retrieval + Rerank | Chroma search → BGE Reranker pipeline | Retrieval module, recall comparison |
 | 5. QA Chain | Prompt build → DeepSeek → source parsing | qa_chain.py |
 | 6. Multi-turn Memory | ConversationSummaryMemory integration | Multi-turn support |
-| 7. Streamlit UI | Login, document management, chat interface | app.py interactive demo |
+| 7. Vue 3 Frontend | Login, document management, chat interface | frontend/ SPA |
 | 8. Tuning + Docs | Chunk size / top_k / temperature tuning, README, demo video | Complete GitHub repo |
 
 ## Design Decisions
 
-1. **FastAPI as separate backend** (not Streamlit-only): Provides REST API for external consumption, clean separation of concerns, higher resume value
+1. **FastAPI as separate backend** (not frontend-coupled): Provides REST API for external consumption, clean separation of concerns, higher resume value
 2. **PostgreSQL over SQLite**: Enterprise-grade, concurrent access, migration path to production
 3. **JWT stateless auth**: No session storage, standard REST practice, easy to scale
 4. **Window + Summary memory**: Balances context retention vs token cost; summary survives long conversations

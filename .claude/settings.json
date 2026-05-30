@@ -52,7 +52,26 @@
       "Bash(.venv/Scripts/python -c \"from FlagEmbedding import FlagReranker; print\\('import OK'\\)\")",
       "Bash(npm install *)",
       "Bash(npx vue-tsc *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/config.py'\\).read\\(\\)\\); print\\('config.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/models.py'\\).read\\(\\)\\); print\\('models.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/schemas.py'\\).read\\(\\)\\); print\\('schemas.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('api/main.py'\\).read\\(\\)\\); print\\('main.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/config.py', encoding='utf-8'\\).read\\(\\)\\); print\\('config.py: OK'\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/models.py', encoding='utf-8'\\).read\\(\\)\\); print\\('models.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/schemas.py', encoding='utf-8'\\).read\\(\\)\\); print\\('schemas.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('api/main.py', encoding='utf-8'\\).read\\(\\)\\); print\\('main.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('core/config.py', encoding='utf-8'\\).read\\(\\)\\); print\\('config.py: OK'\\)\")",
+      "Bash(python -c \"import numpy; print\\('numpy:', numpy.__version__\\)\")",
+      "Bash(python -c \"import sentence_transformers; print\\('sentence_transformers:', sentence_transformers.__version__\\)\")",
+      "Bash(python -c \"from sentence_transformers import SentenceTransformer; m = SentenceTransformer\\('BAAI/bge-large-zh-v1.5', device='cpu'\\); print\\('model loaded'\\)\")",
+      "Bash(python -m pytest tests/test_retrieval.py::test_rerank_diversity_reduces_duplicates -v)",
+      "Bash(python -m pytest tests/test_qa.py::test_extract_suggested_questions -v)",
+      "Bash(python -c \"from rag.streaming import format_sse_event, generate_stream; print\\('rag.streaming OK'\\)\")",
+      "Bash(python -c \"from rag.qa_chain import extract_suggested_questions, generate_followup_questions; print\\('rag.qa_chain new functions OK'\\)\")",
+      "Bash(python -c \"import api.qa; print\\('api.qa module compiles OK'\\)\")",
+      "Bash(pytest tests/test_qa.py -v)",
+      "Bash(python -m pytest tests/ -v)"
     ],
     "additionalDirectories": [
       "d:\\develop\\PythonProject\\EnterpriseRAG"

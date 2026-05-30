@@ -9,7 +9,7 @@ A production-grade Retrieval-Augmented Generation system for enterprise document
 - **RAG pipeline** — BGE Embedding -> Chroma vector search -> BGE Reranker -> DeepSeek LLM
 - **Source citations** — answers include 【source: filename】 markers
 - **Multi-turn memory** — conversation summary compression across turns
-- **Streamlit UI** — clean chat interface with document browser
+- **Vue 3 UI** — SPA with chat interface, document browser, conversation management
 - **REST API** — FastAPI with auto-generated OpenAPI docs
 
 ## Quick Start
@@ -34,9 +34,11 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env: set DEEPSEEK_API_KEY, DB credentials
 
-# Run
-uvicorn api.main:app --reload  # API at http://localhost:8000
-streamlit run app.py            # UI at http://localhost:8501
+# Run API
+uvicorn api.main:app --reload  # http://localhost:8000
+
+# Frontend (Vue 3 dev server, separate terminal)
+cd frontend && npm install && npm run dev  # http://localhost:3000
 ```
 
 ### Docker

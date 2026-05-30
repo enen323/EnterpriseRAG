@@ -80,6 +80,7 @@ const messages = ref<(MessageOut)[]>([])
 const question = ref('')
 const loading = ref(false)
 const error = ref('')
+const statusText = ref('')
 const conversationId = ref<string | undefined>(undefined)
 
 const msgContainer = ref<HTMLElement | null>(null)
@@ -150,6 +151,7 @@ async function sendQuestion() {
       scrollToBottom()
     },
     onDone(metadata: StreamMetadata) {
+      statusText.value = ''
       // Replace temp messages with real persisted messages
       messages.value = messages.value.filter(
         m => m.id !== tempUserMsg.id && m.id !== tempAssistantMsg.id
@@ -162,7 +164,7 @@ async function sendQuestion() {
         created_at: new Date().toISOString(),
       })
       messages.value.push({
-        id: 'assistant-' + Date.now(),
+        id: metadata.message_id,
         role: 'assistant',
         content: accumulated,
         sources: metadata.sources as SourceItem[],
@@ -173,8 +175,19 @@ async function sendQuestion() {
       scrollToBottom()
       loading.value = false
     },
+    onStatus(msg: string) {
+      statusText.value = msg
+      // Show status in temp assistant message when no tokens yet
+      if (!accumulated) {
+        const idx = messages.value.findIndex(m => m.id === tempAssistantMsg.id)
+        if (idx >= 0) {
+          messages.value[idx] = { ...messages.value[idx], content: msg }
+        }
+      }
+    },
     onError(msg: string) {
       error.value = msg
+      statusText.value = ''
       // Remove temp messages on error
       messages.value = messages.value.filter(
         m => m.id !== tempUserMsg.id && m.id !== tempAssistantMsg.id

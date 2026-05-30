@@ -10,6 +10,15 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_API_BASE)
+    return _client
+
 SYSTEM_PROMPT = """You are an enterprise knowledge base assistant. Your task is to answer questions based on the provided context fragments.
 
 Rules:
@@ -18,7 +27,6 @@ Rules:
 3. If multiple sources support a claim, cite all of them: 【来源: file1.md】【来源: file2.pdf】
 4. Be concise and accurate. Use Chinese unless the question is in English.
 5. Do not make up information or speculate beyond the context.
-6. After your answer, generate 3 short follow-up questions the user might ask next. Format each on a new line, prefixed with "Q:". Keep each under 60 characters.
 
 Context fragments:
 {context}
@@ -83,7 +91,7 @@ async def generate_followup_questions(question: str, answer: str) -> list[str]:
         return []
 
     try:
-        client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_API_BASE)
+        client = _get_client()
         response = await client.chat.completions.create(
             model=settings.LLM_MODEL,
             temperature=0.3,
@@ -124,7 +132,7 @@ async def ask_question(
     retry=retry_if_exception_type(Exception),
 )
 async def _call_llm(system_prompt: str, question: str) -> str:
-    client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_API_BASE)
+    client = _get_client()
     response = await client.chat.completions.create(
         model=settings.LLM_MODEL,
         temperature=settings.LLM_TEMPERATURE,

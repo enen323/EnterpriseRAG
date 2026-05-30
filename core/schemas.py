@@ -70,7 +70,7 @@ class MessageOut(BaseModel):
     id: uuid.UUID
     role: str
     content: str
-    sources: dict | None
+    sources: list | dict | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

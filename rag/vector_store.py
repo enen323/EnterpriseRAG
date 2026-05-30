@@ -10,7 +10,8 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# BGE query instruction for retrieval tasks
+_vector_store: Chroma | None = None
+
 BGE_QUERY_INSTRUCTION = "为这个句子生成表示以用于检索相关文章："
 
 
@@ -32,12 +33,15 @@ def get_embedding_model() -> HuggingFaceEmbeddings:
 
 
 def get_vector_store(collection_name: Optional[str] = None) -> Chroma:
-    embedding = get_embedding_model()
-    return Chroma(
-        collection_name=collection_name or settings.CHROMA_COLLECTION,
-        persist_directory=settings.CHROMA_PERSIST_DIR,
-        embedding_function=embedding,
-    )
+    global _vector_store
+    if _vector_store is None:
+        embedding = get_embedding_model()
+        _vector_store = Chroma(
+            collection_name=collection_name or settings.CHROMA_COLLECTION,
+            persist_directory=settings.CHROMA_PERSIST_DIR,
+            embedding_function=embedding,
+        )
+    return _vector_store
 
 
 def add_documents(docs: List[LCDocument], doc_id: str, user_id: str = "", collection_name: Optional[str] = None) -> int:

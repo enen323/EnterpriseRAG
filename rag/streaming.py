@@ -12,6 +12,15 @@ from rag.qa_chain import SYSTEM_PROMPT, _format_context
 
 logger = logging.getLogger(__name__)
 
+_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_API_BASE)
+    return _client
+
 
 def format_sse_event(event_type: str, data: dict) -> str:
     """Format an SSE event as a ``data:`` line with a JSON payload.
@@ -60,7 +69,7 @@ async def generate_stream(
         memory_summary=memory_summary or "No previous conversation.",
     )
 
-    client = AsyncOpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_API_BASE)
+    client = _get_client()
     full_answer = ""
 
     try:

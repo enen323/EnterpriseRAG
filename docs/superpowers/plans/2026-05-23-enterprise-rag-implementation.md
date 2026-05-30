@@ -4,9 +4,9 @@
 
 **Goal:** Build a production-grade RAG knowledge base QA system with multi-user auth, document management, semantic retrieval, reranking, LLM generation with citations, and multi-turn conversation memory.
 
-**Architecture:** FastAPI backend + PostgreSQL (relational data) + Chroma (vector store) + Streamlit frontend. JWT auth. LangChain RAG pipeline with BGE Embedding, BGE Reranker, DeepSeek API.
+**Architecture:** FastAPI backend + PostgreSQL (relational data) + Chroma (vector store) + Vue 3 frontend. JWT auth. LangChain RAG pipeline with BGE Embedding, BGE Reranker, DeepSeek API.
 
-**Tech Stack:** Python 3.14, FastAPI, SQLAlchemy, PostgreSQL, Chroma, LangChain 0.3+, BAAI/bge-large-zh-v1.5, BAAI/bge-reranker-v2-m3, DeepSeek API, Streamlit, Docker Compose
+**Tech Stack:** Python 3.14, FastAPI, SQLAlchemy, PostgreSQL, Chroma, LangChain 0.3+, BAAI/bge-large-zh-v1.5, BAAI/bge-reranker-v2-m3, DeepSeek API, Vue 3 + Vite, Docker Compose
 
 **PostgreSQL Host:** 192.168.100.128:5432
 
@@ -16,7 +16,7 @@
 
 ```
 EnterpriseRAG/
-├── app.py                        # Streamlit UI entry
+├── frontend/                      # Vue 3 + Vite SPA
 ├── api/                          # FastAPI backend
 │   ├── __init__.py
 │   ├── main.py                   # FastAPI app + router registration
@@ -441,7 +441,7 @@ pydantic-settings>=2.7.0
 python-dotenv>=1.0.0
 
 # UI
-streamlit>=1.40.0
+# (frontend is in frontend/ — Vue 3 + Vite, not Python)
 httpx>=0.28.0
 
 # Testing
@@ -482,16 +482,14 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
-  streamlit:
-    build: .
-    container_name: enterpriserag-ui
+  frontend:
+    image: nginx:alpine
+    container_name: enterpriserag-frontend
     ports:
-      - "8501:8501"
-    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+      - "80:80"
     volumes:
-      - .:/app
-    env_file:
-      - .env
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
     depends_on:
       - api
 
@@ -1518,270 +1516,58 @@ git add -A && git commit -m "feat: multi-turn memory — ConversationSummaryMemo
 
 ---
 
-### Task 7: Streamlit UI
+### Task 7: Vue 3 Frontend
 
 **Files:**
-- Create: `app.py`
+- Create: `frontend/` (Vue 3 + Vite + TypeScript)
 
-- [ ] **Step 1: Create `app.py`**
-
-```python
-import uuid
-import streamlit as st
-import httpx
-
-API_BASE = "http://localhost:8000"
-
-# === Session state init ===
-if "token" not in st.session_state:
-    st.session_state.token = None
-if "user" not in st.session_state:
-    st.session_state.user = None
-if "conversation_id" not in st.session_state:
-    st.session_state.conversation_id = None
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-
-# === API helpers ===
-def api_headers():
-    return {"Authorization": f"Bearer {st.session_state.token}"}
-
-
-def api_request(method, path, **kwargs):
-    url = f"{API_BASE}{path}"
-    headers = api_headers()
-    if "headers" in kwargs:
-        headers.update(kwargs.pop("headers"))
-    with httpx.Client(timeout=120) as client:
-        return client.request(method, url, headers=headers, **kwargs)
-
-
-# === Auth ===
-def login_page():
-    st.title("EnterpriseRAG — Login")
-    tab1, tab2 = st.tabs(["Login", "Register"])
-
-    with tab1:
-        with st.form("login"):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            if st.form_submit_button("Login"):
-                resp = api_request("POST", "/api/auth/login", json={"username": username, "password": password})
-                if resp.status_code == 200:
-                    st.session_state.token = resp.json()["access_token"]
-                    user_resp = api_request("GET", "/api/auth/me")
-                    st.session_state.user = user_resp.json()
-                    st.rerun()
-                else:
-                    st.error(resp.json().get("detail", "Login failed"))
-
-    with tab2:
-        with st.form("register"):
-            reg_user = st.text_input("Choose username")
-            reg_pass = st.text_input("Choose password", type="password")
-            if st.form_submit_button("Register"):
-                resp = api_request("POST", "/api/auth/register", json={"username": reg_user, "password": reg_pass})
-                if resp.status_code == 201:
-                    st.success("Registered! Please login.")
-                else:
-                    st.error(resp.json().get("detail", "Registration failed"))
-
-
-# === Document Management ===
-def document_management():
-    st.sidebar.subheader("📄 Documents")
-    resp = api_request("GET", "/api/documents")
-    if resp.status_code == 200:
-        docs = resp.json()
-        for doc in docs:
-            col1, col2 = st.sidebar.columns([3, 1])
-            col1.text(f"{doc['filename']} ({doc['status']})")
-            if col2.button("🗑", key=doc["id"]):
-                api_request("DELETE", f"/api/documents/{doc['id']}")
-                st.rerun()
-
-    uploaded = st.sidebar.file_uploader("Upload document", type=["pdf", "md", "txt", "docx"])
-    if uploaded:
-        files = {"file": (uploaded.name, uploaded.read(), uploaded.type)}
-        resp = api_request("POST", "/api/documents/upload", files=files)
-        if resp.status_code == 201:
-            st.sidebar.success(f"Uploaded: {uploaded.name}")
-            st.rerun()
-        else:
-            st.sidebar.error(resp.json().get("detail", "Upload failed"))
-
-
-# === Conversation ===
-def conversation_sidebar():
-    st.sidebar.subheader("💬 Conversations")
-    resp = api_request("GET", "/api/conversations")
-    if resp.status_code == 200:
-        convs = resp.json()
-        for conv in convs:
-            if st.sidebar.button(conv["title"][:30], key=conv["id"]):
-                st.session_state.conversation_id = conv["id"]
-                # Load messages
-                msg_resp = api_request("GET", f"/api/conversations/{conv['id']}")
-                if msg_resp.status_code == 200:
-                    st.session_state.messages = [
-                        {"role": m["role"], "content": m["content"]}
-                        for m in msg_resp.json()
-                    ]
-                st.rerun()
-
-        if st.sidebar.button("New conversation"):
-            st.session_state.conversation_id = None
-            st.session_state.messages = []
-            st.rerun()
-
-
-# === Chat ===
-def chat_interface():
-    st.title("EnterpriseRAG")
-    st.caption("Ask questions about your documents. Answers include source citations.")
-
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    if prompt := st.chat_input("Ask a question..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            with st.spinner("Searching documents..."):
-                resp = api_request("POST", "/api/qa/ask", json={
-                    "question": prompt,
-                    "conversation_id": st.session_state.conversation_id,
-                })
-                if resp.status_code == 200:
-                    data = resp.json()
-                    answer = data["answer"]
-                    sources = data["sources"]
-                    st.session_state.conversation_id = data["conversation_id"]
-
-                    st.markdown(answer)
-
-                    if sources:
-                        with st.expander("Sources"):
-                            for s in sources:
-                                st.write(f"**{s['filename']}** (score: {s['score']:.4f})")
-                                st.caption(s["chunk_text"][:300] + "...")
-                                st.divider()
-
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
-                else:
-                    err = resp.json().get("detail", "Unknown error")
-                    st.error(f"Error: {err}")
-                    st.session_state.messages.pop()
-
-
-# === Conversations API (needed by UI) ===
-# Add to api/conversations.py (created in next step)
-
-
-# === Main ===
-def main():
-    if not st.session_state.token:
-        login_page()
-        return
-
-    # Logout
-    st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
-
-    document_management()
-    conversation_sidebar()
-    chat_interface()
-
-
-if __name__ == "__main__":
-    main()
-```
-
-- [ ] **Step 2: Create `api/conversations.py`**
-
-```python
-import uuid
-import logging
-from typing import Annotated, List
-
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from core.database import get_db
-from core.models import User, Conversation, Message
-from core.schemas import ConversationOut, MessageOut
-from api.deps import get_current_user
-
-logger = logging.getLogger(__name__)
-
-router = APIRouter(prefix="/api/conversations", tags=["conversations"])
-
-
-@router.get("", response_model=List[ConversationOut])
-async def list_conversations(
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    result = await db.execute(
-        select(Conversation)
-        .where(Conversation.user_id == current_user.id)
-        .order_by(Conversation.updated_at.desc())
-    )
-    return result.scalars().all()
-
-
-@router.get("/{conv_id}", response_model=List[MessageOut])
-async def get_conversation(
-    conv_id: uuid.UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    result = await db.execute(
-        select(Message)
-        .join(Conversation)
-        .where(Message.conversation_id == conv_id, Conversation.user_id == current_user.id)
-        .order_by(Message.created_at)
-    )
-    return result.scalars().all()
-
-
-@router.delete("/{conv_id}", status_code=204)
-async def delete_conversation(
-    conv_id: uuid.UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    result = await db.execute(
-        select(Conversation).where(Conversation.id == conv_id, Conversation.user_id == current_user.id)
-    )
-    conv = result.scalar_one_or_none()
-    if conv:
-        await db.delete(conv)
-        await db.commit()
-```
-
-- [ ] **Step 3: Register conversations router in `api/main.py`**
-
-```python
-from api.conversations import router as conversations_router
-app.include_router(conversations_router)
-```
-
-- [ ] **Step 4: Run the app**
-
-Start API: `uvicorn api.main:app --reload`
-Start UI in another terminal: `streamlit run app.py`
-
-Expected: Login page → Register/Login → Upload docs → Chat
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 1: Scaffold Vue 3 project**
 
 ```bash
-git add -A && git commit -m "feat: Streamlit UI — login, document management, chat"
+cd frontend && npm init vite@latest . -- --template vue-ts
+npm install vue-router pinia
+```
+
+- [ ] **Step 2: Create frontend entry, router, auth store**
+
+`frontend/src/main.ts` — create Vue app, register Pinia + Router.
+`frontend/src/router/index.ts` — routes: `/login`, `/chat` (requiresAuth guard).
+`frontend/src/stores/auth.ts` — Pinia store: login, register, loadUser, logout.
+
+- [ ] **Step 3: API client — `frontend/src/api/index.ts`**
+
+Typed fetch wrapper with localStorage JWT management. Interfaces for all API models.
+
+- [ ] **Step 4: Login view — `frontend/src/views/LoginView.vue`**
+
+Login/register tabs, form validation, error display.
+
+- [ ] **Step 5: Chat view — `frontend/src/views/ChatView.vue`**
+
+Sidebar (document list + conversation list) + message area. Optimistic message insert, source citations toggle.
+
+- [ ] **Step 6: Components**
+
+- `ChatMessage.vue` — message bubble with sources toggle
+- `DocumentList.vue` — upload button, list, delete
+- `ConversationList.vue` — list, select, new conversation
+
+- [ ] **Step 7: Vite config**
+
+Proxy `/api` → `localhost:8000` for dev.
+
+- [ ] **Step 8: Run**
+
+```bash
+cd frontend && npm run dev
+```
+
+Expected: http://localhost:3000 — Login → Chat
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add -A && git commit -m "feat: Vue 3 frontend — login, document management, chat"
 ```
 
 ---
@@ -1806,7 +1592,7 @@ A production-grade Retrieval-Augmented Generation system for enterprise document
 - **RAG pipeline** — BGE Embedding → Chroma vector search → BGE Reranker → DeepSeek LLM
 - **Source citations** — answers include `【来源: filename】` markers
 - **Multi-turn memory** — conversation summary compression across turns
-- **Streamlit UI** — clean chat interface with document browser
+- **Vue 3 frontend** — SPA with chat interface, document browser
 - **REST API** — FastAPI with auto-generated OpenAPI docs
 
 ## Quick Start
@@ -1833,7 +1619,7 @@ cp .env.example .env
 
 # Run
 uvicorn api.main:app --reload  # API at http://localhost:8000
-streamlit run app.py            # UI at http://localhost:8501
+cd frontend && npm install && npm run dev  # UI at http://localhost:3000
 ```
 
 ### Docker
@@ -1881,9 +1667,7 @@ Expected: All tests pass
 git add -A && git commit -m "docs: README, .env.example, final polish"
 ```
 
----
 
-## Spec Coverage Check
 
 | Spec Requirement | Task |
 |-----------------|------|
@@ -1895,7 +1679,7 @@ git add -A && git commit -m "docs: README, .env.example, final polish"
 | BGE Reranker | Task 4 |
 | DeepSeek QA chain + source parsing | Task 5 |
 | Multi-turn memory | Task 6 |
-| Streamlit UI | Task 7 |
+| Vue 3 Frontend | Task 7 |
 | Docker Compose | Task 1 |
 | README + final polish | Task 8 |
 

@@ -1,134 +1,132 @@
-# EnterpriseRAG — 企业级RAG知识库问答系统
+# CLAUDE.md
 
-## 项目概述
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-基于LangChain + Chroma + BGE Embedding + DeepSeek API 的检索增强生成问答系统。支持PDF/Markdown/TXT上传、语义检索、重排序、LLM生成带引用的答案。
-
-## 技术栈
-
-| 组件 | 选型 |
-|------|------|
-| 语言 | Python 3.14 |
-| 编排 | LangChain 0.3+ |
-| Embedding | BAAI/bge-large-zh-v1.5 |
-| 向量库 | Chroma（开发）|
-| Rerank | BAAI/bge-reranker-v2-m3 |
-| LLM | DeepSeek API（外部）|
-| 文档解析 | Unstructured / PyPDF2 + python-docx |
-| 分块 | RecursiveCharacterTextSplitter (chunk_size=512, overlap=128) |
-| UI | Vue 3 + Vite |
-| 部署 | Docker Compose（可选）|
-
-## 项目结构
-
-```
-EnterpriseRAG/
-├── api/                     # FastAPI REST 层
-│   ├── main.py              # 应用工厂 + CORS + 路由注册
-│   ├── auth.py              # 认证端点 /api/auth/*
-│   ├── documents.py         # 文档 CRUD /api/documents/*
-│   ├── qa.py                # 问答端点 /api/qa/ask
-│   ├── conversations.py     # 对话管理 /api/conversations/*
-│   └── deps.py              # JWT 依赖注入
-├── core/                    # 核心共享层
-│   ├── config.py            # Pydantic Settings
-│   ├── models.py            # SQLAlchemy ORM
-│   ├── schemas.py           # Pydantic 请求/响应模型
-│   └── database.py          # 异步引擎 + Session
-├── rag/                     # RAG 引擎
-│   ├── document_loader.py   # 文档解析 + 分块
-│   ├── vector_store.py      # Chroma 向量存储 + 检索
-│   ├── reranker.py          # BGE Reranker 重排序
-│   ├── qa_chain.py          # DeepSeek LLM 调用 + 引用解析
-│   └── memory.py            # 对话摘要压缩
-├── frontend/                # Vue 3 + Vite 前端
-│   ├── src/
-│   │   ├── views/           # LoginView, ChatView
-│   │   ├── components/      # ChatMessage, DocumentList, ConversationList
-│   │   ├── stores/          # Pinia auth store
-│   │   ├── router/          # Vue Router
-│   │   ├── api/             # API 客户端
-│   │   └── styles/          # 全局 CSS
-│   ├── index.html
-│   ├── vite.config.ts       # Vite 配置含 API 代理
-│   └── nginx.conf           # 生产部署配置
-├── docs/
-│   └── api.md               # API 接口文档
-├── tests/
-│   ├── test_auth.py
-│   ├── test_ingestion.py
-│   ├── test_retrieval.py
-│   ├── test_memory.py
-│   └── test_qa.py
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-└── CLAUDE.md
-```
-
-## 核心数据流
-
-**入库**: 文档上传 → 解析文本 → 递归切分 → Embedding → 存入Chroma
-
-**问答**: 用户问题 → Embedding → 检索Top-20 → Rerank取Top-5 → 构造Prompt → 调用LLM → 解析引用返回
-
-## 关键指标
-
-- Recall@5 ≥ 85%（有Rerank目标92%）
-- 端到端延迟 ≤ 3s
-- Rouqe-L ≥ 0.45
-
-## 开发阶段
-
-| 阶段 | 任务 | 产出 |
-|------|------|------|
-| 1 | 环境搭建 | 可运行hello world |
-| 2 | 文档加载与分块 | `document_loader.py` + 测试 |
-| 3 | 向量存储与检索 | `vector_store.py` + Top-K测试 |
-| 4 | Rerank集成 | `reranker.py` + 效果对比 |
-| 5 | LLM问答链 | `qa_chain.py` + 可回答问题 |
-| 6 | Vue3 前端 | `frontend/` 可交互演示 |
-| 7 | 性能调优 | 最佳参数记录 |
-| 8 | README + 演示 | GitHub仓库完整 |
-
-## 命令
+## Commands
 
 ```bash
-# Python 虚拟环境
+# Python venv
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 运行 API 服务
-uvicorn api.main:app --reload
+# Run API (FastAPI dev server)
+uvicorn api.main:app --reload          # http://localhost:8000
+# Frontend (Vue 3 + Vite)
+cd frontend && npm install && npm run dev   # http://localhost:3000
+cd frontend && npm run build                # production build
 
-# 前端开发（新终端）
-cd frontend && npm install && npm run dev
-
-# 前端构建
-cd frontend && npm run build
-
-# 全栈 Docker 启动
+# Docker full stack
 docker compose up -d
 
-# 测试
+# Tests — all
 pytest tests/ -v
+# Tests — single file
+pytest tests/test_auth.py -v
+pytest tests/test_qa.py -v -k "test_parse_sources"
+
+# DB migration
+psql -U rag_user -d enterprise_rag -f docs/migration_v2.sql
 ```
 
-## 代码规范
+## Architecture
 
-- 类型注解必须（Python 3.14 native types）
-- 函数/方法写 docstring，说明参数与返回值
-- 配置集中到 `config.py`，禁止硬编码 API key
-- 异常处理：API调用用tenacity重试+指数退避
-- 日志用 `logging` 模块，关键节点打印
+Three-layer app: **FastAPI backend** → **PostgreSQL + Chroma** → **Vue 3 SPA**.
 
-## 检索配置参考
+### Layer 1: API (`api/`)
 
-- chunk_size: 512, overlap: 128（初始）
-- retriever top_k: 20
-- rerank top_k: 5
-- LLM temperature: 0.1（低温度保确定性）
+FastAPI routers, all under `/api/*`. JWT auth via `HTTPBearer` middleware (`api/deps.py`). Each endpoint injects `current_user` + `db` session.
 
-## 简历亮点（文档原话）
+| Router | Prefix | Auth | Key endpoints |
+|--------|--------|------|--------------|
+| `auth.py` | `/api/auth` | No for register/login | register, login, me |
+| `documents.py` | `/api/documents` | Yes | upload, list, delete, status, preview, batch upload, category filter |
+| `qa.py` | `/api/qa` | Yes | ask (non-streaming), ask/stream (SSE), feedback |
+| `conversations.py` | `/api/conversations` | Yes | list, get messages, delete |
+| `admin.py` | `/api/admin` | Yes (admin) | users list, docs list, stats, delete user |
+| `categories.py` | `/api/categories` | Yes | CRUD categories |
 
-> 设计并实现了基于LangChain + Chroma + BGE Embedding + DeepSeek API 的文档问答系统，支持PDF/Markdown上传与自动索引。引入BGE-Reranker重排序模型，将检索准确率（Recall@5）从78%提升至92%。实现答案溯源功能。系统平均响应延迟2.8秒。
+Upload flow: write file to temp → persist copy to `storage/` for preview → `load_document()` → `split_documents()` → `add_documents()` to Chroma → update DB status.
+
+### Layer 2: Core (`core/`) + RAG Engine (`rag/`)
+
+**`core/config.py`** — Pydantic `Settings`, reads `.env`. Includes DB, JWT, DeepSeek, Embedding, Chroma, Retrieval params, diversity lambda, storage path, streaming tokens. Enforces `DEEPSEEK_API_KEY` at startup.
+
+**`core/database.py`** — Async SQLAlchemy with `asyncpg`. `async_session_factory` + `get_db()` dependency. `init_db()` runs `create_all` on startup (no Alembic needed for dev).
+
+**`core/models.py`** — 6 tables: `users` (UUID PK, bcrypt hashed password, role: admin/user), `documents` (user-scoped, status enum, optional `storage_path` for preview, optional `category_id` FK), `conversations` (user-scoped), `messages` (role: user/assistant, JSON sources), `message_feedback` (message_id+user_id unique, up/down + optional comment), `categories` (user-scoped, name unique per user).
+
+**RAG pipeline** (`rag/`):
+1. `document_loader.py` — Parse PDF/MD/TXT/DOCX per type, return `List[LCDocument]`. Split via `RecursiveCharacterTextSplitter` (chunk_size=512, overlap=128).
+2. `vector_store.py` — Chroma + BGE Embedding (`bge-large-zh-v1.5`) with query instruction prepended. Functions: `add_documents`, `delete_document_chunks`, `search_documents` (user-filtered).
+3. `reranker.py` — BGE Reranker (`bge-reranker-v2-m3`). Lazy-loaded singleton. Two modes: `rerank` (baseline) and `rerank_with_diversity` (greedy selection with cosine similarity penalty, default). Top-20 → diversity-rerank → Top-5.
+4. `qa_chain.py` — Formats context + memory summary into system prompt, calls DeepSeek via OpenAI SDK. `tenacity` retry (3 attempts, exponential backoff). Parses `【来源: filename】` citations from output. Non-streaming path appends follow-up prompt for inline Q: generation.
+5. `memory.py` — `ConversationMemory` class. Compresses last 3 conversation turns into summary using DeepSeek. Falls back to concatenation on LLM error.
+6. `streaming.py` — SSE event formatting + async generator for DeepSeek stream. Yields `token` events during streaming, `done` event on completion, `error` on failure. Follow-up questions generated via separate lightweight LLM call post-stream.
+
+Full retrieve path: `search_documents(question, filter={user_id})` → `rerank_with_diversity(question, results)` → `ask_question(question, reranked, memory_summary)`.
+
+Streaming path: same retrieve → `generate_stream(question, reranked, memory_summary)` yields SSE tokens → post-stream: parse sources, generate follow-ups, persist messages, yield metadata event.
+
+### Layer 3: Frontend (`frontend/`)
+
+Vue 3 + TypeScript + Vite + Pinia + Vue Router.
+
+- `vite.config.ts` proxies `/api` → `localhost:8000`
+- `src/api/index.ts` — Typed fetch client, localStorage JWT management, SSE streaming via ReadableStream
+- `src/stores/auth.ts` — Pinia store: login, register, loadUser, logout
+- `src/router/index.ts` — Routes: `/login`, `/chat` (requiresAuth guard), `/admin` (requiresAuth)
+- `src/views/` — `LoginView.vue` (login/register tabs), `ChatView.vue` (sidebar + message area, streaming support), `AdminView.vue` (admin panel)
+- `src/components/` — `ChatMessage.vue` (sources toggle, feedback thumbs up/down, follow-up chips), `DocumentList.vue` (upload/list/delete/preview/batch, category filter), `ConversationList.vue`, `DocPreview.vue` (modal preview), `CategorySelector.vue`
+
+Chat data flow (streaming): user types → optimistic message insert → `qaApi.askStream()` SSE → progressively update message bubble per token → on metadata: replace temp messages with real ones.
+
+### Data flow
+
+```
+Upload:  [file] → temp → storage/ copy (preview) → load_document() → split_documents() → Chroma add_documents() → DB status=ready
+Ask:     [question] → search_documents(filter=user_id, top_k=20) → rerank_with_diversity(top_k=5) → 
+         format_context() + memory_summary → DeepSeek API → parse_sources → save messages → return
+Stream:  [question] → same retrieve/rerank → SSE(event_stream) → DeepSeek stream=TRUE → token events → post-stream: parse sources, generate follow-ups, persist → metadata event
+```
+
+User-scoped: Chroma chunks tagged with `user_id`; all document/conversation queries filter by `current_user.id`.
+
+### Tests (`tests/`)
+
+| File | Scope | Pattern |
+|------|-------|---------|
+| `conftest.py` | Shared fixtures | `db_session`, `async_client`, `auth_headers` via SQLite in-memory |
+| `test_auth.py` | Auth endpoints | AsyncClient with SQLite in-memory DB override |
+| `test_ingestion.py` | Doc parsing/chunking | tmp_path fixtures |
+| `test_retrieval.py` | Search + rerank + diversity | Mocked embedding model, numpy-based mock |
+| `test_memory.py` | ConversationMemory | Async tests, real LLM call for first turn |
+| `test_qa.py` | Context format, source parsing, feedback, follow-ups | No LLM needed |
+
+All tests use `pytest-asyncio` with `Mode.STRICT`.
+
+### Key config (from `.env`)
+
+```
+DEEPSEEK_API_KEY=required
+DEEPSEEK_API_BASE=https://api.deepseek.com/v1
+DB_HOST=192.168.100.128  (or localhost via Docker)
+JWT_SECRET=change-in-production
+```
+
+China HF mirror set automatically in `core/config.py` via `HF_ENDPOINT=https://hf-mirror.com`.
+
+### Docker
+
+`docker-compose.yml` runs: API (uvicorn), PostgreSQL 16, nginx serving frontend dist. Chroma persistence on named volume.
+
+## Dev notes
+
+- Python 3.14 native types required (no `from typing import List` etc. — use `list`, `dict`).
+- All async: FastAPI + asyncpg + async SQLAlchemy.
+- Tests use `pytest-asyncio`; must mark `@pytest.mark.asyncio` or use `pytest_asyncio.fixture`.
+- Chroma is file-based (persist dir `chroma_db/`). No separate server.
+- Frontend talks to API through Vite proxy in dev, nginx reverse proxy in production.
+- New DB tables since v1: `message_feedback`, `categories`. Existing `documents` table has new nullable columns `storage_path` and `category_id`. Run `docs/migration_v2.sql` to migrate existing DB.
+- Streaming SSE frontend uses `ReadableStream` with manual SSE line parsing (no EventSource dependency).
+- Batch upload supports `.zip` archives with automatic extraction and per-file ingestion.
+- Non-streaming `/ask` generates follow-up questions via prompt injection (same LLM call). Streaming `/ask/stream` uses separate lightweight LLM call post-stream.

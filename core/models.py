@@ -71,7 +71,7 @@ class Message(Base):
     conversation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)  # "user" or "assistant"
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    sources: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    sources: Mapped[list | dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     conversation = relationship("Conversation", back_populates="messages")
